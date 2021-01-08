@@ -104,6 +104,8 @@ void main() {
             log.add(methodCall);
             return "Billing client ready";
           });
+
+          await FlutterInappPurchase.instance.init();
         });
 
         tearDown(() {

@@ -75,17 +75,23 @@ class FlutterInappPurchase {
         code: _platform.operatingSystem, message: "platform not supported");
   }
 
+  void init() async {
+    assert(null == _connectionController);
+
+    await _setPurchaseListener();
+  }
+
   /// InitConnection prepare iap features for both `Android` and `iOS`.
   ///
   /// This must be called on `Android` and `iOS` before purchasing.
   /// On `iOS`, it also checks if the client can make payments.
   Future<String> get initConnection async {
+    assert(null != _connectionController);
+    
     if (_platform.isAndroid) {
-      await _setPurchaseListener();
       final String result = await _channel.invokeMethod('initConnection');
       return result;
     } else if (_platform.isIOS) {
-      await _setPurchaseListener();
       final String result = await _channel.invokeMethod('canMakePayments');
       return result;
     }
