@@ -324,10 +324,8 @@ public class AndroidInappPurchasePlugin implements MethodCallHandler,  Applicati
             item.put("purchaseToken", purchase.getPurchaseToken());
             item.put("signatureAndroid", purchase.getSignature());
             item.put("purchaseStateAndroid", purchase.getPurchaseState());
-
-            if (type.equals(BillingClient.SkuType.INAPP)) {
-              item.put("isAcknowledgedAndroid", purchase.isAcknowledged());
-            } else if (type.equals(BillingClient.SkuType.SUBS)) {
+            item.put("isAcknowledgedAndroid", purchase.isAcknowledged());
+            if (type.equals(BillingClient.SkuType.SUBS)) {
               item.put("autoRenewingAndroid", purchase.isAutoRenewing());
             }
             items.put(item);
