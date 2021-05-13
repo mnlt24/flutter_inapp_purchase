@@ -13,35 +13,37 @@ export 'modules.dart';
 
 /// A enumeration of in-app purchase types for Android
 /// https://developer.android.com/reference/com/android/billingclient/api/BillingClient.SkuType.html#constants_2
-enum _TypeInApp {
-  inapp, subs
-}
+enum _TypeInApp { inapp, subs }
 
 class FlutterInappPurchase {
-  static FlutterInappPurchase instance = FlutterInappPurchase(
-    FlutterInappPurchase.private(const LocalPlatform()));
+  static FlutterInappPurchase instance =
+      FlutterInappPurchase(FlutterInappPurchase.private(const LocalPlatform()));
 
-  static StreamController<PurchasedItem> _purchaseController;
-  static Stream<PurchasedItem> get purchaseUpdated => _purchaseController.stream;
+  static StreamController<PurchasedItem?>? _purchaseController;
+  static Stream<PurchasedItem?> get purchaseUpdated =>
+      _purchaseController!.stream;
 
-  static StreamController<PurchaseResult> _purchaseErrorController;
-  static Stream<PurchaseResult> get purchaseError => _purchaseErrorController.stream;
+  static StreamController<PurchaseResult?>? _purchaseErrorController;
+  static Stream<PurchaseResult?> get purchaseError =>
+      _purchaseErrorController!.stream;
 
-  static StreamController<ConnectionResult> _connectionController;
-  static Stream<ConnectionResult> get connectionUpdated => _connectionController.stream;
+  static StreamController<ConnectionResult>? _connectionController;
+  static Stream<ConnectionResult> get connectionUpdated =>
+      _connectionController!.stream;
 
-  static StreamController<String> _purchasePromotedController;
-  static Stream<String> get purchasePromoted => _purchasePromotedController.stream;
+  static StreamController<String?>? _purchasePromotedController;
+  static Stream<String?> get purchasePromoted =>
+      _purchasePromotedController!.stream;
 
   /// Defining the [MethodChannel] for Flutter_Inapp_Purchase
   static final MethodChannel _channel = const MethodChannel('flutter_inapp');
   static MethodChannel get channel => _channel;
 
   final Platform _pf;
-  final http.Client _httpClient;
+  final http.Client? _httpClient;
 
   static Platform get _platform => instance._pf;
-  static http.Client get _client => instance._httpClient;
+  static http.Client? get _client => instance._httpClient;
 
   factory FlutterInappPurchase(FlutterInappPurchase _instance) {
     instance = _instance;
@@ -49,15 +51,15 @@ class FlutterInappPurchase {
   }
 
   @visibleForTesting
-  FlutterInappPurchase.private(Platform platform, {http.Client client})
+  FlutterInappPurchase.private(Platform platform, {http.Client? client})
       : _pf = platform,
         _httpClient = client;
 
   /// Returns the platform version on `Android` and `iOS`.
   ///
   /// eg, `Android 5.1.1`
-  Future<String> get platformVersion async {
-    final String version = await _channel.invokeMethod('getPlatformVersion');
+  Future<String?> get platformVersion async {
+    final String? version = await _channel.invokeMethod('getPlatformVersion');
     return version;
   }
 
@@ -66,7 +68,7 @@ class FlutterInappPurchase {
   /// Particularly useful for removing all consumable items.
   Future get consumeAllItems async {
     if (_platform.isAndroid) {
-      final String result = await _channel.invokeMethod('consumeAllItems');
+      final String? result = await _channel.invokeMethod('consumeAllItems');
       return result;
     } else if (_platform.isIOS) {
       return 'no-ops in ios';
@@ -85,7 +87,7 @@ class FlutterInappPurchase {
   ///
   /// This must be called on `Android` and `iOS` before purchasing.
   /// On `iOS`, it also checks if the client can make payments.
-  Future<String> get initConnection async {
+  Future<String?> get initConnection async {
     assert(null != _connectionController);
     
     if (_platform.isAndroid) {
@@ -162,7 +164,7 @@ class FlutterInappPurchase {
   ///
   /// Purchase history includes all types of products.
   /// Identical to [getAvailablePurchases] on `iOS`.
-  Future<List<PurchasedItem>> getPurchaseHistory() async {
+  Future<List<PurchasedItem>?> getPurchaseHistory() async {
     if (_platform.isAndroid) {
       Future<dynamic> getInappPurchaseHistory = _channel.invokeMethod(
         'getPurchaseHistoryByType',
@@ -178,14 +180,13 @@ class FlutterInappPurchase {
         },
       );
 
-      List<dynamic> results = await Future.wait(
-          [getInappPurchaseHistory, getSubsPurchaseHistory]);
+      List<dynamic> results =
+          await Future.wait([getInappPurchaseHistory, getSubsPurchaseHistory]);
 
       return results.reduce((result1, result2) =>
-      extractPurchased(result1) + extractPurchased(result2));
+          extractPurchased(result1)! + extractPurchased(result2)!);
     } else if (_platform.isIOS) {
-      dynamic result =
-          await _channel.invokeMethod('getAvailableItems');
+      dynamic result = await _channel.invokeMethod('getAvailableItems');
 
       return extractPurchased(json.encode(result));
     }
@@ -196,7 +197,7 @@ class FlutterInappPurchase {
   /// Get all non-consumed purchases made on `Android` and `iOS`.
   ///
   /// This is identical to [getPurchaseHistory] on `iOS`
-  Future<List<PurchasedItem>> getAvailablePurchases() async {
+  Future<List<PurchasedItem>?> getAvailablePurchases() async {
     if (_platform.isAndroid) {
       dynamic result1 = await _channel.invokeMethod(
         'getAvailableItemsByType',
@@ -212,10 +213,9 @@ class FlutterInappPurchase {
         },
       );
 
-      return extractPurchased(result1) + extractPurchased(result2);
+      return extractPurchased(result1)! + extractPurchased(result2)!;
     } else if (_platform.isIOS) {
-      dynamic result =
-          await _channel.invokeMethod('getAvailableItems');
+      dynamic result = await _channel.invokeMethod('getAvailableItems');
 
       return extractPurchased(json.encode(result));
     }
@@ -225,12 +225,14 @@ class FlutterInappPurchase {
 
   /// Request a purchase on `Android` or `iOS`.
   /// Result will be received in `purchaseUpdated` listener or `purchaseError` listener.
-  ///
+  /// 
+  /// Check [AndroidProrationMode] for valid proration values
   /// Identical to [requestSubscription] on `iOS`.
-  Future requestPurchase(String sku, {
-    String obfuscatedAccountIdAndroid,
-    String obfuscatedProfileIdAndroid,
-    String purchaseTokenAndroid,
+  Future requestPurchase(
+    String sku, {
+    String? obfuscatedAccountIdAndroid,
+    String? obfuscatedProfileIdAndroid,
+    String? purchaseTokenAndroid,
   }) async {
     if (_platform.isAndroid) {
       return await _channel.invokeMethod('buyItemByType', <String, dynamic>{
@@ -243,8 +245,7 @@ class FlutterInappPurchase {
         'purchaseToken': purchaseTokenAndroid,
       });
     } else if (_platform.isIOS) {
-      return await _channel.invokeMethod(
-        'buyProduct', <String, dynamic>{
+      return await _channel.invokeMethod('buyProduct', <String, dynamic>{
         'sku': sku,
       });
     }
@@ -256,19 +257,19 @@ class FlutterInappPurchase {
   /// Result will be received in `purchaseUpdated` listener or `purchaseError` listener.
   ///
   /// **NOTICE** second parameter is required on `Android`.
-  ///
+  /// 
+  /// Check [AndroidProrationMode] for valid proration values
   /// Identical to [requestPurchase] on `iOS`.
-  Future requestSubscription(String sku,
-      {
-        String oldSkuAndroid,
-        int prorationModeAndroid,
-        String obfuscatedAccountIdAndroid,
-        String obfuscatedProfileIdAndroid,
-        String purchaseTokenAndroid,
-      }) async {
+  Future requestSubscription(
+    String sku, {
+    String? oldSkuAndroid,
+    int? prorationModeAndroid,
+    String? obfuscatedAccountIdAndroid,
+    String? obfuscatedProfileIdAndroid,
+    String? purchaseTokenAndroid,
+  }) async {
     if (_platform.isAndroid) {
-      return await _channel
-          .invokeMethod('buyItemByType', <String, dynamic>{
+      return await _channel.invokeMethod('buyItemByType', <String, dynamic>{
         'type': EnumUtil.getValueString(_TypeInApp.subs),
         'sku': sku,
         'oldSku': oldSkuAndroid,
@@ -278,8 +279,7 @@ class FlutterInappPurchase {
         'purchaseToken': purchaseTokenAndroid,
       });
     } else if (_platform.isIOS) {
-      return await _channel.invokeMethod(
-        'buyProduct', <String, dynamic>{
+      return await _channel.invokeMethod('buyProduct', <String, dynamic>{
         'sku': sku,
       });
     }
@@ -291,14 +291,13 @@ class FlutterInappPurchase {
   /// Indicates that the App Store purchase should continue from the app instead of the App Store.
   ///
   /// @returns {Future<String>}
-  Future<String> getPromotedProductIOS() async {
+  Future<String?> getPromotedProductIOS() async {
     if (_platform.isIOS) {
-      String result = await _channel.invokeMethod('getPromotedProduct');
+      String? result = await _channel.invokeMethod('getPromotedProduct');
       return result;
     }
     return null;
   }
-
 
   /// Add Store Payment (iOS only)
   /// Indicates that the App Store purchase should continue from the app instead of the App Store.
@@ -308,44 +307,52 @@ class FlutterInappPurchase {
     if (_platform.isIOS) {
       return await _channel.invokeMethod('requestPromotedProduct');
     }
-    throw PlatformException(code: _platform.operatingSystem, message: "platform not supported");
+    throw PlatformException(
+        code: _platform.operatingSystem, message: "platform not supported");
   }
 
   /// Buy product with offer
   ///
   /// @returns {Future} will receive result from `purchaseUpdated` listener.
   Future requestProductWithOfferIOS(
-    String sku, String forUser, Map<String, dynamic> withOffer,
+    String sku,
+    String forUser,
+    Map<String, dynamic> withOffer,
   ) async {
     if (_platform.isIOS) {
-      return await _channel.invokeMethod('requestProductWithOfferIOS', <String, dynamic>{
+      return await _channel
+          .invokeMethod('requestProductWithOfferIOS', <String, dynamic>{
         'sku': sku,
         'forUser': forUser,
         'withOffer': withOffer,
       });
     }
-    throw PlatformException(code: _platform.operatingSystem, message: "platform not supported");
+    throw PlatformException(
+        code: _platform.operatingSystem, message: "platform not supported");
   }
 
   /// Buy product with quantity
   ///
   /// @returns {Future} will receive result from `purchaseUpdated` listener.
   Future requestPurchaseWithQuantityIOS(
-    String sku, int quantity,
+    String sku,
+    int quantity,
   ) async {
     if (_platform.isIOS) {
-      return await _channel.invokeMethod('requestPurchaseWithQuantity', <String, dynamic>{
+      return await _channel
+          .invokeMethod('requestPurchaseWithQuantity', <String, dynamic>{
         'sku': sku,
         'quantity': quantity,
       });
     }
-    throw PlatformException(code: _platform.operatingSystem, message: "platform not supported");
+    throw PlatformException(
+        code: _platform.operatingSystem, message: "platform not supported");
   }
 
   /// Get the pending purchases in IOS.
   ///
   /// @returns {Future<List<PurchasedItem>>}
-  Future<List<PurchasedItem>> getPendingTransactionsIOS() async {
+  Future<List<PurchasedItem>?> getPendingTransactionsIOS() async {
     if (_platform.isIOS) {
       dynamic result = await _channel.invokeMethod(
         'getPendingTransactions',
@@ -359,9 +366,10 @@ class FlutterInappPurchase {
   /// Acknowledge a purchase on `Android`.
   ///
   /// No effect on `iOS`, whose iap purchases are consumed at the time of purchase.
-  Future<String> acknowledgePurchaseAndroid(String token) async {
+  Future<String?> acknowledgePurchaseAndroid(String token) async {
     if (_platform.isAndroid) {
-      String result = await _channel.invokeMethod('acknowledgePurchase', <String, dynamic>{
+      String? result =
+          await _channel.invokeMethod('acknowledgePurchase', <String, dynamic>{
         'token': token,
       });
 
@@ -372,7 +380,6 @@ class FlutterInappPurchase {
     throw PlatformException(
         code: _platform.operatingSystem, message: "platform not supported");
   }
-
 
   /// Consumes a purchase on `Android`.
   ///
@@ -386,9 +393,9 @@ class FlutterInappPurchase {
   ///        errorData[0] = E_ALREADY_OWNED;
   ///        errorData[1] = "You already own this item.";
   ///        break;
-  Future<String> consumePurchaseAndroid(String token) async {
+  Future<String?> consumePurchaseAndroid(String token) async {
     if (_platform.isAndroid) {
-      String result =
+      String? result =
           await _channel.invokeMethod('consumeProduct', <String, dynamic>{
         'token': token,
       });
@@ -403,13 +410,13 @@ class FlutterInappPurchase {
   /// End Play Store connection on `Android` and remove iap observer in `iOS`.
   ///
   /// Absolutely necessary to call this when done with the payment.
-  Future<String> get endConnection async {
+  Future<String?> get endConnection async {
     if (_platform.isAndroid) {
-      final String result = await _channel.invokeMethod('endConnection');
+      final String? result = await _channel.invokeMethod('endConnection');
       _removePurchaseListener();
       return result;
     } else if (_platform.isIOS) {
-      final String result = await _channel.invokeMethod('endConnection');
+      final String? result = await _channel.invokeMethod('endConnection');
       _removePurchaseListener();
       return result;
     }
@@ -422,11 +429,12 @@ class FlutterInappPurchase {
   /// Call this after finalizing server-side validation of the reciept.
   ///
   /// No effect on `Android`, who does not allow this type of functionality.
-  Future<String> finishTransactionIOS(String transactionId) async {
+  Future<String?> finishTransactionIOS(String transactionId) async {
     if (_platform.isAndroid) {
       return 'no ops in android';
     } else if (_platform.isIOS) {
-      String result = await _channel.invokeMethod('finishTransaction', <String, dynamic>{
+      String? result =
+          await _channel.invokeMethod('finishTransaction', <String, dynamic>{
         'transactionIdentifier': transactionId,
       });
       return result;
@@ -438,22 +446,25 @@ class FlutterInappPurchase {
   /// Finish a transaction on both `android` and `iOS`.
   ///
   /// Call this after finalizing server-side validation of the reciept.
-  Future<String> finishTransaction(PurchasedItem purchasedItem,
-    { bool isConsumable = false }) async {
+  Future<String?> finishTransaction(PurchasedItem purchasedItem,
+      {bool isConsumable = false}) async {
     if (_platform.isAndroid) {
       if (isConsumable) {
-        String result = await _channel.invokeMethod('consumeProduct', <String, dynamic>{
+        String? result =
+            await _channel.invokeMethod('consumeProduct', <String, dynamic>{
           'token': purchasedItem.purchaseToken,
         });
         return result;
       } else {
-        String result = await _channel.invokeMethod('acknowledgePurchase', <String, dynamic>{
+        String? result = await _channel
+            .invokeMethod('acknowledgePurchase', <String, dynamic>{
           'token': purchasedItem.purchaseToken,
         });
         return result;
       }
     } else if (_platform.isIOS) {
-      String result = await _channel.invokeMethod('finishTransaction', <String, dynamic>{
+      String? result =
+          await _channel.invokeMethod('finishTransaction', <String, dynamic>{
         'transactionIdentifier': purchasedItem.transactionId,
       });
       return result;
@@ -462,15 +473,14 @@ class FlutterInappPurchase {
         code: _platform.operatingSystem, message: "platform not supported");
   }
 
-
   /// Clear all remaining transaction on `iOS`.
   ///
   /// No effect on `Android`, who does not allow this type of functionality.
-  Future<String> clearTransactionIOS() async {
+  Future<String?> clearTransactionIOS() async {
     if (_platform.isAndroid) {
       return 'no-ops in android.';
     } else if (_platform.isIOS) {
-      String result = await _channel.invokeMethod('clearTransaction');
+      String? result = await _channel.invokeMethod('clearTransaction');
       return result;
     }
     throw PlatformException(
@@ -481,7 +491,7 @@ class FlutterInappPurchase {
   ///
   Future<List<IAPItem>> getAppStoreInitiatedProducts() async {
     if (_platform.isAndroid) {
-      return List<IAPItem>();
+      return <IAPItem>[];
     } else if (_platform.isIOS) {
       dynamic result =
           await _channel.invokeMethod('getAppStoreInitiatedProducts');
@@ -498,24 +508,26 @@ class FlutterInappPurchase {
   /// It is highly recommended to do server-side validation for all subscriptions.
   /// This method is NOT secure and untested in production.
   Future<bool> checkSubscribed({
-    @required String sku,
+    required String sku,
     Duration duration: const Duration(days: 30),
     Duration grace: const Duration(days: 3),
   }) async {
     assert(sku != null);
     if (_platform.isIOS) {
-      var history = await getPurchaseHistory();
+      var history =
+          await (getPurchaseHistory() as FutureOr<List<PurchasedItem>>);
 
       for (var purchase in history) {
         Duration difference =
-            DateTime.now().difference(purchase.transactionDate);
+            DateTime.now().difference(purchase.transactionDate!);
         if (difference.inMinutes <= (duration + grace).inMinutes &&
             purchase.productId == sku) return true;
       }
 
       return false;
     } else if (_platform.isAndroid) {
-      var purchases = await getAvailablePurchases();
+      var purchases =
+          await (getAvailablePurchases() as FutureOr<List<PurchasedItem>>);
 
       for (var purchase in purchases) {
         if (purchase.productId == sku) return true;
@@ -539,7 +551,7 @@ class FlutterInappPurchase {
   /// console.log(result);
   /// ```
   Future<http.Response> validateReceiptIos({
-    Map<String, String> receiptBody,
+    required Map<String, String> receiptBody,
     bool isTest = true,
   }) async {
     assert(receiptBody != null);
@@ -549,7 +561,7 @@ class FlutterInappPurchase {
         ? 'https://sandbox.itunes.apple.com/verifyReceipt'
         : 'https://buy.itunes.apple.com/verifyReceipt';
     return await http.post(
-      url,
+      Uri.parse(url),
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -575,10 +587,10 @@ class FlutterInappPurchase {
   /// console.log(result);
   /// ```
   Future<http.Response> validateReceiptAndroid({
-    String packageName,
-    String productId,
-    String productToken,
-    String accessToken,
+    required String packageName,
+    required String productId,
+    required String productToken,
+    required String accessToken,
     bool isSubscription = false,
   }) async {
     assert(packageName != null);
@@ -589,8 +601,8 @@ class FlutterInappPurchase {
     final String type = isSubscription ? 'subscriptions' : 'products';
     final String url =
         'https://www.googleapis.com/androidpublisher/v3/applications/$packageName/purchases/$type/$productId/tokens/$productToken?access_token=$accessToken';
-    return await _client.get(
-      url,
+    return await _client!.get(
+      Uri.parse(url),
       headers: {
         'Accept': 'application/json',
       },
@@ -618,39 +630,62 @@ class FlutterInappPurchase {
       switch (call.method) {
         case "purchase-updated":
           Map<String, dynamic> result = jsonDecode(call.arguments);
-          _purchaseController.add(new PurchasedItem.fromJSON(result));
+          _purchaseController!.add(new PurchasedItem.fromJSON(result));
           break;
         case "purchase-error":
           Map<String, dynamic> result = jsonDecode(call.arguments);
-          _purchaseErrorController.add(new PurchaseResult.fromJSON(result));
+          _purchaseErrorController!.add(new PurchaseResult.fromJSON(result));
           break;
         case "connection-updated":
           Map<String, dynamic> result = jsonDecode(call.arguments);
-          _connectionController.add(new ConnectionResult.fromJSON(result));
+          _connectionController!.add(new ConnectionResult.fromJSON(result));
           break;
         case "iap-promoted-product":
-          String productId = call.arguments;
-          _purchasePromotedController.add(productId);
+          String? productId = call.arguments;
+          _purchasePromotedController!.add(productId);
           break;
         default:
           throw new ArgumentError('Unknown method ${call.method}');
       }
-      return null;
-    });
+      return Future.value(null);
+    } as Future<dynamic> Function(MethodCall)?);
   }
 
   Future _removePurchaseListener() async {
     if (_purchaseController != null) {
       _purchaseController
-        ..add(null)
+        ?..add(null)
         ..close();
       _purchaseController = null;
-    } 
+    }
     if (_purchaseErrorController != null) {
       _purchaseErrorController
-        ..add(null)
+        ?..add(null)
         ..close();
       _purchaseErrorController = null;
     }
   }
+}
+
+/// A list of valid values for ProrationMode parameter
+/// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode
+class AndroidProrationMode{
+  /// Replacement takes effect when the old plan expires, and the new price will be charged at the same time.
+  /// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode#DEFERRED
+  static const int DEFERRED = 4;
+
+  /// Replacement takes effect immediately, and the billing cycle remains the same. The price for the remaining period will be charged. This option is only available for subscription upgrade.
+  /// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode#immediate_and_charge_prorated_price
+  static const int IMMEDIATE_AND_CHARGE_PRORATED_PRICE = 2;
+
+  /// Replacement takes effect immediately, and the new price will be charged on next recurrence time. The billing cycle stays the same.
+  /// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode#immediate_without_proration
+  static const int IMMEDIATE_WITHOUT_PRORATION = 3;
+
+  /// Replacement takes effect immediately, and the remaining time will be prorated and credited to the user. This is the current default behavior.
+  /// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode#immediate_with_time_proration
+  static const int IMMEDIATE_WITH_TIME_PRORATION = 1;
+
+  /// https://developer.android.com/reference/com/android/billingclient/api/BillingFlowParams.ProrationMode#unknown_subscription_upgrade_downgrade_policy
+  static const int UNKNOWN_SUBSCRIPTION_UPGRADE_DOWNGRADE_POLICY = 0;
 }
