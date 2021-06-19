@@ -77,7 +77,7 @@ class FlutterInappPurchase {
         code: _platform.operatingSystem, message: "platform not supported");
   }
 
-  void init() async {
+  Future<void> init() async {
     assert(null == _connectionController);
 
     await _setPurchaseListener();
